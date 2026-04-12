@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSendTransaction, useReadContract, useAccount, useWaitForTransactionReceipt, useSwitchChain, useChainId } from 'wagmi';
+import { useSendTransaction, useReadContract, useAccount, useWaitForTransactionReceipt, useChainId, useWalletClient } from 'wagmi';
 import { base } from 'wagmi/chains';
-import type { EIP1193Provider } from 'viem';
+import { switchChain } from 'viem/actions';
 import { ABI, CONTRACT_ADDRESS, THEME_PRESETS, FRAME_STYLES } from '@/lib/contract';
 import { encodeWithAttribution } from '@/lib/attribution';
 import type { Address } from 'viem';
@@ -37,8 +37,7 @@ export function EditProfile({ address, onClose, onSaved }: EditProfileProps) {
   }, [profileData]);
 
   const chainId = useChainId();
-  const { switchChainAsync } = useSwitchChain();
-  const { connector } = useAccount();
+  const { data: walletClient } = useWalletClient();
   const { sendTransaction, data: txHash, isPending } = useSendTransaction();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash: txHash,
@@ -74,38 +73,22 @@ export function EditProfile({ address, onClose, onSaved }: EditProfileProps) {
   };
 
   const switchToBase = async (): Promise<boolean> => {
-    const BASE_CHAIN_ID_HEX = `0x${base.id.toString(16)}`; // "0x2105"
-
-    // Get the actual provider from the connected connector (works with Rabby EIP-6963)
-    let provider: EIP1193Provider | undefined;
-    try {
-      provider = (await connector?.getProvider()) as EIP1193Provider | undefined;
-    } catch { /* ignore */ }
-
-    // Fallback to window.ethereum if connector provider unavailable
-    if (!provider) {
-      provider = (window as unknown as { ethereum?: EIP1193Provider }).ethereum;
-    }
-
-    if (!provider) {
-      setSwitchError('ウォレットが見つかりません。');
+    if (!walletClient) {
+      setSwitchError('ウォレットが接続されていません。');
       return false;
     }
-
     try {
-      await provider.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: BASE_CHAIN_ID_HEX }],
-      });
+      await switchChain(walletClient, { id: base.id });
       return true;
     } catch (err: unknown) {
-      // 4902 = chain not added to wallet yet
-      if ((err as { code?: number })?.code === 4902) {
+      const code = (err as { code?: number })?.code;
+      // 4902 = chain not added to wallet
+      if (code === 4902) {
         try {
-          await provider.request({
+          await walletClient.request({
             method: 'wallet_addEthereumChain',
             params: [{
-              chainId: BASE_CHAIN_ID_HEX,
+              chainId: `0x${base.id.toString(16)}`,
               chainName: 'Base',
               nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
               rpcUrls: ['https://mainnet.base.org'],
@@ -118,7 +101,12 @@ export function EditProfile({ address, onClose, onSaved }: EditProfileProps) {
           return false;
         }
       }
-      setSwitchError('Base chain への切り替えを拒否しました。');
+      // 4001 = user rejected
+      if (code === 4001) {
+        setSwitchError('チェーン切り替えを拒否しました。');
+      } else {
+        setSwitchError('Base chain への切り替えに失敗しました。');
+      }
       return false;
     }
   };
