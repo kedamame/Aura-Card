@@ -4,7 +4,7 @@ import { type Address } from 'viem';
 // npx hardhat run scripts/deploy.ts --network base
 export const CONTRACT_ADDRESS: Address =
   (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as Address) ||
-  '0x0000000000000000000000000000000000000000';
+  '0x2966a0eFA55F03F86Dd2736c25Ef76300B9c07D9';
 
 export const ABI = [
   {
