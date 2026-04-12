@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSendTransaction, useReadContract, useAccount, useWaitForTransactionReceipt, useSwitchChain, useChainId } from 'wagmi';
 import { base } from 'wagmi/chains';
+import { UserRejectedRequestError } from 'viem';
 import { ABI, CONTRACT_ADDRESS, THEME_PRESETS, FRAME_STYLES } from '@/lib/contract';
 import { encodeWithAttribution } from '@/lib/attribution';
 import type { Address } from 'viem';
@@ -25,6 +26,7 @@ export function EditProfile({ address, onClose, onSaved }: EditProfileProps) {
   const [themeColor, setThemeColor] = useState('#7c3aed');
   const [frameStyle, setFrameStyle] = useState('glow');
   const [artistInput, setArtistInput] = useState('');
+  const [switchError, setSwitchError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profileData) return;
@@ -59,19 +61,27 @@ export function EditProfile({ address, onClose, onSaved }: EditProfileProps) {
   };
 
   const handleSave = async () => {
+    setSwitchError(null);
+
+    // If not on Base, switch first
     if (chainId !== base.id) {
       try {
         await switchChainAsync({ chainId: base.id });
-      } catch {
+      } catch (e) {
+        if (e instanceof UserRejectedRequestError) {
+          setSwitchError('Chain switch was rejected. Please switch to Base manually.');
+        } else {
+          // Wallet may not support switchChain — try passing chainId to sendTransaction instead
+          const tx = encodeWithAttribution('setProfile', [filteredArtists, themeColor, frameStyle]);
+          sendTransaction({ ...tx, chainId: base.id });
+          return;
+        }
         return;
       }
     }
-    const tx = encodeWithAttribution('setProfile', [
-      filteredArtists,
-      themeColor,
-      frameStyle,
-    ]);
-    sendTransaction(tx);
+
+    const tx = encodeWithAttribution('setProfile', [filteredArtists, themeColor, frameStyle]);
+    sendTransaction({ ...tx, chainId: base.id });
   };
 
   const selectedPreset = THEME_PRESETS.find((t) => t.color === themeColor);
@@ -192,6 +202,10 @@ export function EditProfile({ address, onClose, onSaved }: EditProfileProps) {
             ? 'Saving on Base...'
             : 'Save Aura'}
         </button>
+
+        {switchError && (
+          <p className="text-red-400 text-xs text-center">{switchError}</p>
+        )}
 
         {txHash && (
           <a
