@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSendTransaction, useReadContract, useAccount, useWaitForTransactionReceipt } from 'wagmi';
+import { useSendTransaction, useReadContract, useAccount, useWaitForTransactionReceipt, useSwitchChain, useChainId } from 'wagmi';
+import { base } from 'wagmi/chains';
 import { ABI, CONTRACT_ADDRESS, THEME_PRESETS, FRAME_STYLES } from '@/lib/contract';
 import { encodeWithAttribution } from '@/lib/attribution';
 import type { Address } from 'viem';
@@ -33,6 +34,8 @@ export function EditProfile({ address, onClose, onSaved }: EditProfileProps) {
     if (savedFrame) setFrameStyle(savedFrame);
   }, [profileData]);
 
+  const chainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
   const { sendTransaction, data: txHash, isPending } = useSendTransaction();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash: txHash,
@@ -55,7 +58,14 @@ export function EditProfile({ address, onClose, onSaved }: EditProfileProps) {
     setArtists((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (chainId !== base.id) {
+      try {
+        await switchChainAsync({ chainId: base.id });
+      } catch {
+        return;
+      }
+    }
     const tx = encodeWithAttribution('setProfile', [
       filteredArtists,
       themeColor,
