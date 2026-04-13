@@ -162,7 +162,13 @@ export function AuraCard({ address, user, onEdit, compact = false }: AuraCardPro
 
           {/* Latest tx */}
           {txLoading ? (
-            <div className="h-10 rounded-xl bg-white/5 animate-pulse" />
+            <>
+              <p className="text-white/30 text-xs uppercase tracking-widest mb-1.5">Latest tx</p>
+              <div className="flex items-center gap-2 bg-white/5 rounded-xl px-4 py-2.5">
+                <div className="w-3 h-3 rounded-full border-2 border-white/20 border-t-white/60 animate-spin flex-shrink-0" />
+                <span className="text-white/30 text-xs">Fetching latest tx...</span>
+              </div>
+            </>
           ) : tx ? (
             <>
               <p className="text-white/30 text-xs uppercase tracking-widest mb-1.5">Latest tx</p>
