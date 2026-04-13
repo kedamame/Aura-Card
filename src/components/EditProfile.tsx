@@ -91,25 +91,14 @@ export function EditProfile({ address, onClose, onSaved }: EditProfileProps) {
           </button>
         </div>
 
-        {/* Wrong network banner */}
+        {/* Wrong network indicator (no button — Save Aura handles the switch) */}
         {!isOnBase && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-amber-400 text-sm font-medium">⚠ ネットワークが違います</span>
-            </div>
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl px-4 py-3 flex items-center gap-2">
+            <span className="text-amber-400 text-sm">⚠</span>
             <p className="text-amber-300/70 text-xs">
-              現在: {chain?.name ?? `Chain ${chain?.id ?? '不明'}`}
-              {' → '}
-              Base Mainnet に切り替えてください
+              現在: {chain?.name ?? `Chain ${chain?.id ?? '不明'}`} —
+              Save Aura を押すと自動で Base に切り替わります
             </p>
-            <button
-              onClick={() => switchChainAsync({ chainId: base.id }).catch(() => {})}
-
-              disabled={isSwitching}
-              className="w-full py-2.5 rounded-xl font-semibold text-sm text-white bg-amber-500 hover:bg-amber-400 disabled:opacity-50 transition-all"
-            >
-              {isSwitching ? '切り替え中...' : 'Base に切り替える'}
-            </button>
           </div>
         )}
 
