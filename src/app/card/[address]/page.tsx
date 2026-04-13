@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
+import ClientRedirect from './ClientRedirect';
 
 const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL || 'https://aura-card-five.vercel.app';
@@ -42,5 +42,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default function CardPage({ params }: Props) {
-  redirect(`/?addr=${params.address}`);
+  // Client-side redirect so OG metadata HTML is served first
+  return <ClientRedirect address={params.address} />;
 }
