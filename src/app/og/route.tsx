@@ -1,5 +1,4 @@
 import { ImageResponse } from 'next/og';
-import { THEME_PRESETS } from '@/lib/contract';
 
 export const runtime = 'edge';
 
@@ -15,45 +14,41 @@ function encodeGetProfile(address: string): string {
   return selector + padded;
 }
 
+// hex string → Uint8Array → UTF-8 string (edge runtime safe)
+function hexToUtf8(hex: string): string {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return new TextDecoder().decode(bytes);
+}
+
 // Minimal ABI decoder for (string[], string, string, uint256)
 function decodeProfileResult(hex: string): { artists: string[]; themeColor: string } {
   try {
-    // Strip 0x
     const data = hex.startsWith('0x') ? hex.slice(2) : hex;
-    // Each slot is 32 bytes = 64 hex chars
-    // slot 0: offset to string[] = 0x80 (4 slots)
-    // slot 1: offset to themeColor string
-    // slot 2: offset to frameStyle string
-    // slot 3: updatedAt
-
-    const slot = (i: number) => data.slice(i * 64, i * 64 + 64);
     const toNum = (s: string) => parseInt(s, 16);
+    const slot = (i: number) => data.slice(i * 64, i * 64 + 64);
 
-    // themeColor is at slot 1 (offset in bytes from start of data)
-    const themeColorOffset = toNum(slot(1)) * 2; // bytes → hex chars
+    // slot 1 = offset (bytes) to themeColor string
+    const themeColorOffset = toNum(slot(1)) * 2;
     const themeColorLen = toNum(data.slice(themeColorOffset, themeColorOffset + 64));
-    const themeColor =
-      Buffer.from(
-        data.slice(themeColorOffset + 64, themeColorOffset + 64 + themeColorLen * 2),
-        'hex'
-      ).toString('utf8') || '#7c3aed';
+    const themeColor = themeColorLen > 0 && themeColorLen < 100
+      ? hexToUtf8(data.slice(themeColorOffset + 64, themeColorOffset + 64 + themeColorLen * 2))
+      : '#7c3aed';
 
-    // artists array: slot 0 gives offset
+    // slot 0 = offset (bytes) to string[] (artists)
     const artistsOffset = toNum(slot(0)) * 2;
     const artistCount = toNum(data.slice(artistsOffset, artistsOffset + 64));
 
     const artists: string[] = [];
-    // Each element is an offset relative to artistsOffset
-    for (let i = 0; i < artistCount && i < 5; i++) {
-      const elemOffsetHex = data.slice(artistsOffset + 64 + i * 64, artistsOffset + 64 + i * 64 + 64);
-      const elemOffset = (toNum(elemOffsetHex) * 2) + artistsOffset;
+    for (let i = 0; i < Math.min(artistCount, 5); i++) {
+      const elemOffsetHex = data.slice(artistsOffset + 64 + i * 64, artistsOffset + 128 + i * 64);
+      const elemOffset = toNum(elemOffsetHex) * 2 + artistsOffset;
       const elemLen = toNum(data.slice(elemOffset, elemOffset + 64));
       if (elemLen > 0 && elemLen < 200) {
-        const str = Buffer.from(
-          data.slice(elemOffset + 64, elemOffset + 64 + elemLen * 2),
-          'hex'
-        ).toString('utf8');
-        if (str) artists.push(str);
+        const str = hexToUtf8(data.slice(elemOffset + 64, elemOffset + 64 + elemLen * 2));
+        if (str.trim()) artists.push(str.trim());
       }
     }
 
