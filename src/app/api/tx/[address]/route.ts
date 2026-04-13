@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Basescan V2 API (chain-specific, free tier supported)
-const BASESCAN_V2 = 'https://api.basescan.org/v2/api';
+// Blockscout API for Base Mainnet (free, no API key required, Etherscan-compatible)
+const BLOCKSCOUT = 'https://base.blockscout.com/api';
 
-async function fetchTxList(action: string, address: string, apiKey: string) {
+async function fetchTxList(action: string, address: string) {
   const url =
-    `${BASESCAN_V2}?module=account&action=${action}` +
-    `&address=${address}&page=1&offset=5&sort=desc` +
-    (apiKey ? `&apikey=${apiKey}` : '');
+    `${BLOCKSCOUT}?module=account&action=${action}` +
+    `&address=${address}&page=1&offset=5&sort=desc`;
   const res = await fetch(url, { cache: 'no-store' });
   return res.json();
 }
@@ -33,13 +32,12 @@ export async function GET(
   { params }: { params: { address: string } }
 ) {
   const { address } = params;
-  const apiKey = process.env.NEXT_PUBLIC_BASESCAN_API_KEY ?? '';
 
   try {
     const [normal, internal, token] = await Promise.all([
-      fetchTxList('txlist', address, apiKey),
-      fetchTxList('txlistinternal', address, apiKey),
-      fetchTxList('tokentx', address, apiKey),
+      fetchTxList('txlist', address),
+      fetchTxList('txlistinternal', address),
+      fetchTxList('tokentx', address),
     ]);
 
     const tx = pickLatest(
