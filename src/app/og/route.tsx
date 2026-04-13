@@ -139,7 +139,7 @@ export async function GET(req: Request) {
             />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div style={{ color: '#ffffff', fontWeight: 700, fontSize: 24 }}>{short}</div>
-              <div style={{ color: from, fontSize: 14 }}>{label} Aura - Base</div>
+              <div style={{ color: from, fontSize: 14 }}>{`${label} Aura - Base`}</div>
             </div>
           </div>
 
