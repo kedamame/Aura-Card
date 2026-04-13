@@ -164,28 +164,31 @@ export function AuraCard({ address, user, onEdit, compact = false }: AuraCardPro
           {txLoading ? (
             <div className="h-10 rounded-xl bg-white/5 animate-pulse" />
           ) : tx ? (
-            <a
-              href={`https://basescan.org/tx/${tx.hash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-between bg-white/5 hover:bg-white/10 transition-colors rounded-xl px-4 py-2.5 group"
-            >
-              <div className="flex flex-col gap-0.5">
-                <span className="text-white text-xs font-medium">
-                  {formatTxLabel(tx, address)}
-                </span>
-                <span className="text-white/40 text-xs font-mono">
-                  → {formatAddress(tx.to)}
-                </span>
-              </div>
-              <div className="flex flex-col items-end gap-0.5">
-                <span className="text-white/40 text-xs">{formatTimeAgo(tx.timeStamp)}</span>
-                {tx.isError === '1' && (
-                  <span className="text-red-400 text-xs">failed</span>
-                )}
-                <span className="text-white/20 text-xs group-hover:text-white/40 transition-colors">↗</span>
-              </div>
-            </a>
+            <>
+              <p className="text-white/30 text-xs uppercase tracking-widest mb-1.5">Latest tx</p>
+              <a
+                href={`https://basescan.org/tx/${tx.hash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between bg-white/5 hover:bg-white/10 transition-colors rounded-xl px-4 py-2.5 group"
+              >
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-white text-xs font-medium">
+                    {formatTxLabel(tx, address)}
+                  </span>
+                  <span className="text-white/40 text-xs font-mono">
+                    → {formatAddress(tx.to)}
+                  </span>
+                </div>
+                <div className="flex flex-col items-end gap-0.5">
+                  <span className="text-white/40 text-xs">{formatTimeAgo(tx.timeStamp)}</span>
+                  {tx.isError === '1' && (
+                    <span className="text-red-400 text-xs">failed</span>
+                  )}
+                  <span className="text-white/20 text-xs group-hover:text-white/40 transition-colors">↗</span>
+                </div>
+              </a>
+            </>
           ) : null}
         </div>
 
