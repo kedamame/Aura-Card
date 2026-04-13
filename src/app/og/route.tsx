@@ -32,14 +32,12 @@ function decodeProfile(hex: string): { artists: string[]; themeColor: string } {
 
     const toNum = (s: string) => parseInt(s || '0', 16);
 
-    // slot 1 → themeColor offset (bytes)
     const tcOff = toNum(data.slice(64, 128)) * 2;
     const tcLen = toNum(data.slice(tcOff, tcOff + 64));
     const themeColor = (tcLen > 0 && tcLen < 50)
       ? hexToUtf8(data.slice(tcOff + 64, tcOff + 64 + tcLen * 2))
       : '#7c3aed';
 
-    // slot 0 → artists offset (bytes)
     const arrOff = toNum(data.slice(0, 64)) * 2;
     const arrCount = toNum(data.slice(arrOff, arrOff + 64));
 
@@ -69,118 +67,121 @@ const COLOR_MAP: Record<string, [string, string, string]> = {
 };
 
 export async function GET(req: Request) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const address = searchParams.get('addr') ?? '';
+  const { searchParams } = new URL(req.url);
+  const address = searchParams.get('addr') ?? '';
 
-    let artists: string[] = [];
-    let themeColor = '#7c3aed';
+  let artists: string[] = [];
+  let themeColor = '#7c3aed';
 
-    if (/^0x[0-9a-fA-F]{40}$/.test(address)) {
-      try {
-        const rpcRes = await fetch(RPC, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            method: 'eth_call',
-            params: [{ to: CONTRACT, data: encodeGetProfile(address) }, 'latest'],
-            id: 1,
-          }),
-        });
-        const rpcJson = await rpcRes.json() as { result?: string };
-        if (rpcJson.result && rpcJson.result.length > 10) {
-          const decoded = decodeProfile(rpcJson.result);
-          artists = decoded.artists;
-          themeColor = decoded.themeColor;
-        }
-      } catch {
-        // use defaults
+  if (/^0x[0-9a-fA-F]{40}$/.test(address)) {
+    try {
+      const rpcRes = await fetch(RPC, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_call',
+          params: [{ to: CONTRACT, data: encodeGetProfile(address) }, 'latest'],
+          id: 1,
+        }),
+      });
+      const rpcJson = await rpcRes.json() as { result?: string };
+      if (rpcJson.result && rpcJson.result.length > 10) {
+        const decoded = decodeProfile(rpcJson.result);
+        artists = decoded.artists;
+        themeColor = decoded.themeColor;
       }
+    } catch {
+      // use defaults
     }
+  }
 
-    const [from, to, label] = COLOR_MAP[themeColor] ?? ['#7c3aed', '#6366f1', 'Aurora'];
-    const short = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '—';
+  const [from, to, label] = COLOR_MAP[themeColor] ?? ['#7c3aed', '#6366f1', 'Aurora'];
+  const short = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Aura Card';
 
-    return new ImageResponse(
-      (
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          width: 900,
+          height: 600,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#0d0b18',
+        }}
+      >
+        {/* Card */}
         <div
           style={{
-            width: 900,
-            height: 600,
+            width: 520,
+            background: '#1a1730',
+            border: `2px solid ${from}`,
+            borderRadius: 28,
+            padding: 40,
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'linear-gradient(135deg, #080810 0%, #12101e 100%)',
-            position: 'relative',
+            flexDirection: 'column',
+            gap: 20,
           }}
         >
-          {/* glow top-right */}
-          <div style={{ position: 'absolute', top: 0, right: 0, width: 400, height: 400, borderRadius: 200, background: `radial-gradient(circle, ${from}44 0%, transparent 70%)`, display: 'flex' }} />
-          {/* glow bottom-left */}
-          <div style={{ position: 'absolute', bottom: 0, left: 0, width: 280, height: 280, borderRadius: 140, background: `radial-gradient(circle, ${to}33 0%, transparent 70%)`, display: 'flex' }} />
-
-          {/* Card */}
-          <div
-            style={{
-              width: 520,
-              background: 'rgba(255,255,255,0.04)',
-              border: `1px solid ${from}66`,
-              borderRadius: 28,
-              padding: '40px 48px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 20,
-              boxShadow: `0 0 60px ${from}33`,
-            }}
-          >
-            {/* Header row */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-              <div style={{ width: 60, height: 60, borderRadius: 30, background: `linear-gradient(135deg, ${from}, ${to})`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <div style={{ width: 20, height: 20, borderRadius: 10, background: 'rgba(255,255,255,0.85)', display: 'flex' }} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <div style={{ color: 'white', fontWeight: 700, fontSize: 24 }}>{short}</div>
-                <div style={{ color: `${from}cc`, fontSize: 15, marginTop: 4 }}>{label} Aura · Base</div>
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div style={{ height: 1, background: `linear-gradient(to right, ${from}55, ${to}55)`, display: 'flex' }} />
-
-            {/* Artists */}
-            {artists.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, letterSpacing: 3 }}>VIBING TO</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {artists.map((a, i) => (
-                    <div key={i} style={{ padding: '7px 20px', borderRadius: 100, background: `linear-gradient(to right, ${from}, ${to})`, color: 'white', fontSize: 16, fontWeight: 600 }}>
-                      {a}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Footer */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-              <div style={{ color: 'rgba(255,255,255,0.2)', fontSize: 13 }}>on Base Mainnet</div>
-              <div style={{ color: from, fontSize: 22, fontWeight: 800 }}>Aura Card</div>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                background: from,
+                display: 'flex',
+                flexShrink: 0,
+              }}
+            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ color: '#ffffff', fontWeight: 700, fontSize: 24 }}>{short}</div>
+              <div style={{ color: from, fontSize: 14 }}>{label} Aura - Base</div>
             </div>
           </div>
+
+          {/* Divider */}
+          <div style={{ height: 1, background: from, display: 'flex', opacity: 0.3 }} />
+
+          {/* Artists */}
+          {artists.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>VIBING TO</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {artists.map((a, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      paddingTop: 6,
+                      paddingBottom: 6,
+                      paddingLeft: 18,
+                      paddingRight: 18,
+                      borderRadius: 100,
+                      background: from,
+                      color: '#ffffff',
+                      fontSize: 15,
+                      fontWeight: 600,
+                      display: 'flex',
+                    }}
+                  >
+                    {a}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Footer */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>on Base Mainnet</div>
+            <div style={{ color: to, fontSize: 20, fontWeight: 800 }}>Aura Card</div>
+          </div>
         </div>
-      ),
-      { width: 900, height: 600 }
-    );
-  } catch (e) {
-    // Return minimal fallback image on any error
-    return new ImageResponse(
-      (
-        <div style={{ width: 900, height: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#080810' }}>
-          <div style={{ color: '#7c3aed', fontSize: 48, fontWeight: 800 }}>Aura Card</div>
-        </div>
-      ),
-      { width: 900, height: 600 }
-    );
-  }
+      </div>
+    ),
+    { width: 900, height: 600 }
+  );
 }
