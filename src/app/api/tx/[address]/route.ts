@@ -46,7 +46,7 @@ export async function GET(
       pickFirst(token),
     );
 
-    return NextResponse.json({ tx, _debug: { normal, internal, token } });
+    return NextResponse.json({ tx });
   } catch (e) {
     return NextResponse.json({ tx: null, error: String(e) });
   }
