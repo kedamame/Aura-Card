@@ -47,7 +47,18 @@ export async function GET(
       pickFirst(token),
     );
 
-    return NextResponse.json({ tx });
+    return NextResponse.json({
+      tx,
+      _debug: {
+        normalStatus: (normal as {status?:string})?.status,
+        internalStatus: (internal as {status?:string})?.status,
+        tokenStatus: (token as {status?:string})?.status,
+        normalMsg: (normal as {message?:string})?.message,
+        internalMsg: (internal as {message?:string})?.message,
+        tokenMsg: (token as {message?:string})?.message,
+        hasApiKey: !!apiKey,
+      },
+    });
   } catch (e) {
     return NextResponse.json({ tx: null, error: String(e) });
   }
