@@ -105,18 +105,11 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
 }
 
 async function getLatestTx(address: string): Promise<Tx | null> {
-  const result = await withTimeout(
-    Promise.all([
-      fetchTxList('txlist', address),
-      fetchTxList('txlistinternal', address),
-      fetchTxList('tokentx', address),
-    ]),
-    4000, // 4 second total timeout for all Blockscout calls
-  );
-  if (!result) return null;
+  // OG image: only fetch txlist (1 request) to stay within timeout budget
+  const txs = await withTimeout(fetchTxList('txlist', address), 5000);
+  if (!txs) return null;
 
-  const [normal, internal, token] = result;
-  const tx = [...normal, ...internal, ...token]
+  const tx = txs
     .filter((t) => t.to?.toLowerCase() !== OWN_CONTRACT)
     .sort((a, b) => parseInt(b.timeStamp) - parseInt(a.timeStamp))[0] ?? null;
 
