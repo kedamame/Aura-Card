@@ -7,8 +7,24 @@ async function fetchTxList(action: string, address: string, apiKey: string) {
     `${BASESCAN}?module=account&action=${action}` +
     `&address=${address}&page=1&offset=5&sort=desc` +
     (apiKey ? `&apikey=${apiKey}` : '');
-  const res = await fetch(url, { next: { revalidate: 30 } });
+  const res = await fetch(url, { cache: 'no-store' });
   return res.json();
+}
+
+function pickFirst(data: unknown): Record<string, string> | null {
+  const d = data as { status?: string; result?: unknown };
+  if (d?.status === '1' && Array.isArray(d?.result) && d.result.length > 0) {
+    return d.result[0] as Record<string, string>;
+  }
+  return null;
+}
+
+function pickLatest(
+  ...txs: (Record<string, string> | null)[]
+): Record<string, string> | null {
+  return txs
+    .filter((t): t is Record<string, string> => t !== null)
+    .sort((a, b) => parseInt(b.timeStamp) - parseInt(a.timeStamp))[0] ?? null;
 }
 
 export async function GET(
@@ -19,29 +35,17 @@ export async function GET(
   const apiKey = process.env.NEXT_PUBLIC_BASESCAN_API_KEY ?? '';
 
   try {
-    const [normal, internal] = await Promise.all([
+    const [normal, internal, token] = await Promise.all([
       fetchTxList('txlist', address, apiKey),
       fetchTxList('txlistinternal', address, apiKey),
+      fetchTxList('tokentx', address, apiKey),
     ]);
 
-    const txNormal =
-      normal?.status === '1' && Array.isArray(normal?.result)
-        ? normal.result[0] ?? null
-        : null;
-    const txInternal =
-      internal?.status === '1' && Array.isArray(internal?.result)
-        ? internal.result[0] ?? null
-        : null;
-
-    let tx = null;
-    if (txNormal && txInternal) {
-      tx =
-        parseInt(txNormal.timeStamp) >= parseInt(txInternal.timeStamp)
-          ? txNormal
-          : txInternal;
-    } else {
-      tx = txNormal ?? txInternal;
-    }
+    const tx = pickLatest(
+      pickFirst(normal),
+      pickFirst(internal),
+      pickFirst(token),
+    );
 
     return NextResponse.json({ tx });
   } catch (e) {

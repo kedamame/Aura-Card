@@ -9,8 +9,10 @@ export interface LatestTx {
   from: string;
   to: string;
   value: string;           // wei string
-  functionName: string;    // e.g. "transfer(address,uint256)" or ""
-  isError: string;         // "0" or "1"
+  functionName?: string;   // e.g. "transfer(address,uint256)" or "" (absent on tokentx)
+  tokenName?: string;      // ERC20 token name (tokentx only)
+  tokenSymbol?: string;    // ERC20 token symbol (tokentx only)
+  isError?: string;        // "0" or "1"
 }
 
 interface State {
@@ -53,6 +55,13 @@ export function formatTimeAgo(unixTimestamp: string): string {
 
 export function formatTxLabel(tx: LatestTx, myAddress: string): string {
   const isOutgoing = tx.from.toLowerCase() === myAddress.toLowerCase();
+
+  // ERC20 token transfer
+  if (tx.tokenSymbol) {
+    const amount = tx.tokenName ? `${tx.tokenSymbol}` : 'token';
+    return isOutgoing ? `Sent ${amount}` : `Received ${amount}`;
+  }
+
   const valueEth = Number(tx.value) / 1e18;
 
   // Contract interaction with known function name
