@@ -1,4 +1,4 @@
-import { http, createConfig, createStorage, cookieStorage } from 'wagmi';
+import { http, createConfig } from 'wagmi';
 import { base } from 'wagmi/chains';
 import { coinbaseWallet, injected, walletConnect } from 'wagmi/connectors';
 import { farcasterMiniApp } from '@farcaster/miniapp-wagmi-connector';
@@ -19,6 +19,4 @@ export const config = createConfig({
     ),
   },
   multiInjectedProviderDiscovery: true,
-  storage: createStorage({ storage: cookieStorage }),
-  ssr: true,
 });
