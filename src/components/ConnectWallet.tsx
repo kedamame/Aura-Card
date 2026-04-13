@@ -35,9 +35,6 @@ export function ConnectWallet({ isInMiniApp }: ConnectWalletProps) {
     return () => clearTimeout(timer);
   }, [isInMiniApp]);
 
-  const browserConnectors = connectors.filter((c) => c.id !== 'farcasterMiniApp');
-  const fcConnector = connectors.find((c) => c.id === 'farcasterMiniApp');
-
   if (isInMiniApp && !autoConnectFailed) {
     return (
       <div className="flex flex-col items-center gap-3 w-full max-w-xs mx-auto">
@@ -52,23 +49,14 @@ export function ConnectWallet({ isInMiniApp }: ConnectWalletProps) {
       <p className="text-white/50 text-sm text-center mb-2">
         Connect your wallet to view or create your Aura Card
       </p>
-      {isInMiniApp && fcConnector && (
-        <button
-          onClick={() => connect({ connector: fcConnector })}
-          disabled={isPending}
-          className="w-full py-3 px-6 rounded-2xl font-semibold text-white bg-violet-600 hover:bg-violet-500 transition-all disabled:opacity-50"
-        >
-          Connect Farcaster Wallet
-        </button>
-      )}
-      {!isInMiniApp && browserConnectors.map((connector) => (
+      {connectors.map((connector) => (
         <button
           key={connector.id}
           onClick={() => connect({ connector })}
           disabled={isPending}
           className="w-full py-3 px-6 rounded-2xl font-semibold text-white bg-white/10 hover:bg-white/20 border border-white/10 transition-all disabled:opacity-50"
         >
-          {connector.name}
+          {connector.id === 'farcasterMiniApp' ? 'Farcaster Wallet' : connector.name}
         </button>
       ))}
       {error && (
