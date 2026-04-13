@@ -168,7 +168,7 @@ export async function GET(req: Request) {
       getLatestTx(address),
     ]);
 
-    if (profileRes.status === 'fulfilled' && profileRes.value?.result?.length > 10) {
+    if (profileRes.status === 'fulfilled' && profileRes.value?.result && profileRes.value.result.length > 10) {
       const decoded = decodeProfile(profileRes.value.result);
       artists = decoded.artists;
       themeColor = decoded.themeColor;
