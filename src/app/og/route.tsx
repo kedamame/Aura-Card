@@ -1,34 +1,78 @@
 import { ImageResponse } from 'next/og';
-import { createPublicClient, http } from 'viem';
-import { base } from 'viem/chains';
-import { ABI, CONTRACT_ADDRESS, THEME_PRESETS } from '@/lib/contract';
+import { THEME_PRESETS } from '@/lib/contract';
 
-export const runtime = 'nodejs';
+export const runtime = 'edge';
 
 const RPC = process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org';
+const CONTRACT = (
+  process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0x2966a0eFA55F03F86Dd2736c25Ef76300B9c07D9'
+).toLowerCase();
 
-function getColors(themeColor: string) {
-  const preset = THEME_PRESETS.find((t) => t.color === themeColor);
-  if (!preset) return { from: '#7c3aed', to: '#4f46e5', label: 'Aurora' };
-  const parts = preset.gradient.split(' ');
-  // map Tailwind gradient to hex approximations
-  const colorMap: Record<string, string> = {
-    'from-violet-600': '#7c3aed', 'to-indigo-500': '#6366f1',
-    'from-orange-500': '#f97316', 'to-pink-500': '#ec4899',
-    'from-cyan-500': '#06b6d4',  'to-blue-600': '#2563eb',
-    'from-emerald-500': '#10b981','to-teal-600': '#0d9488',
-    'from-red-500': '#ef4444',   'to-orange-400': '#fb923c',
-    'from-indigo-600': '#4f46e5','to-purple-700': '#7e22ce',
-  };
-  return {
-    from: colorMap[parts[0]] ?? themeColor,
-    to: colorMap[parts[1]] ?? themeColor,
-    label: preset.label,
-  };
+// ABI-encode getProfile(address) call
+function encodeGetProfile(address: string): string {
+  const selector = '0x0f53a470';
+  const padded = address.replace('0x', '').toLowerCase().padStart(64, '0');
+  return selector + padded;
 }
 
-function shortAddr(addr: string) {
-  return addr.slice(0, 6) + '...' + addr.slice(-4);
+// Minimal ABI decoder for (string[], string, string, uint256)
+function decodeProfileResult(hex: string): { artists: string[]; themeColor: string } {
+  try {
+    // Strip 0x
+    const data = hex.startsWith('0x') ? hex.slice(2) : hex;
+    // Each slot is 32 bytes = 64 hex chars
+    // slot 0: offset to string[] = 0x80 (4 slots)
+    // slot 1: offset to themeColor string
+    // slot 2: offset to frameStyle string
+    // slot 3: updatedAt
+
+    const slot = (i: number) => data.slice(i * 64, i * 64 + 64);
+    const toNum = (s: string) => parseInt(s, 16);
+
+    // themeColor is at slot 1 (offset in bytes from start of data)
+    const themeColorOffset = toNum(slot(1)) * 2; // bytes → hex chars
+    const themeColorLen = toNum(data.slice(themeColorOffset, themeColorOffset + 64));
+    const themeColor =
+      Buffer.from(
+        data.slice(themeColorOffset + 64, themeColorOffset + 64 + themeColorLen * 2),
+        'hex'
+      ).toString('utf8') || '#7c3aed';
+
+    // artists array: slot 0 gives offset
+    const artistsOffset = toNum(slot(0)) * 2;
+    const artistCount = toNum(data.slice(artistsOffset, artistsOffset + 64));
+
+    const artists: string[] = [];
+    // Each element is an offset relative to artistsOffset
+    for (let i = 0; i < artistCount && i < 5; i++) {
+      const elemOffsetHex = data.slice(artistsOffset + 64 + i * 64, artistsOffset + 64 + i * 64 + 64);
+      const elemOffset = (toNum(elemOffsetHex) * 2) + artistsOffset;
+      const elemLen = toNum(data.slice(elemOffset, elemOffset + 64));
+      if (elemLen > 0 && elemLen < 200) {
+        const str = Buffer.from(
+          data.slice(elemOffset + 64, elemOffset + 64 + elemLen * 2),
+          'hex'
+        ).toString('utf8');
+        if (str) artists.push(str);
+      }
+    }
+
+    return { artists, themeColor };
+  } catch {
+    return { artists: [], themeColor: '#7c3aed' };
+  }
+}
+
+function getColors(themeColor: string) {
+  const colorMap: Record<string, { from: string; to: string; label: string }> = {
+    '#7c3aed': { from: '#7c3aed', to: '#6366f1', label: 'Aurora' },
+    '#f97316': { from: '#f97316', to: '#ec4899', label: 'Sunset' },
+    '#06b6d4': { from: '#06b6d4', to: '#2563eb', label: 'Ocean' },
+    '#10b981': { from: '#10b981', to: '#0d9488', label: 'Forest' },
+    '#ef4444': { from: '#ef4444', to: '#fb923c', label: 'Ember' },
+    '#6366f1': { from: '#4f46e5', to: '#7e22ce', label: 'Midnight' },
+  };
+  return colorMap[themeColor] ?? { from: '#7c3aed', to: '#6366f1', label: 'Aurora' };
 }
 
 export async function GET(req: Request) {
@@ -38,24 +82,33 @@ export async function GET(req: Request) {
   let artists: string[] = [];
   let themeColor = '#7c3aed';
 
-  if (address) {
+  if (address && address.startsWith('0x') && address.length === 42) {
     try {
-      const client = createPublicClient({ chain: base, transport: http(RPC) });
-      const data = await client.readContract({
-        address: CONTRACT_ADDRESS,
-        abi: ABI,
-        functionName: 'getProfile',
-        args: [address as `0x${string}`],
+      const res = await fetch(RPC, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_call',
+          params: [{ to: CONTRACT, data: encodeGetProfile(address) }, 'latest'],
+          id: 1,
+        }),
       });
-      artists = (data[0] as string[]).filter(Boolean);
-      themeColor = (data[1] as string) || '#7c3aed';
+      const json = await res.json() as { result?: string };
+      if (json.result && json.result !== '0x') {
+        const decoded = decodeProfileResult(json.result);
+        artists = decoded.artists;
+        themeColor = decoded.themeColor;
+      }
     } catch {
-      // fallback to defaults
+      // use defaults
     }
   }
 
   const { from, to, label } = getColors(themeColor);
-  const displayAddr = address ? shortAddr(address) : 'Aura Card';
+  const displayAddr = address
+    ? address.slice(0, 6) + '...' + address.slice(-4)
+    : 'Aura Card';
 
   return new ImageResponse(
     (
@@ -72,99 +125,45 @@ export async function GET(req: Request) {
         }}
       >
         {/* Background glow */}
-        <div
-          style={{
-            position: 'absolute',
-            top: -120,
-            right: -120,
-            width: 480,
-            height: 480,
-            borderRadius: 240,
-            background: `radial-gradient(circle, ${from}55 0%, transparent 70%)`,
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            bottom: -80,
-            left: -80,
-            width: 320,
-            height: 320,
-            borderRadius: 160,
-            background: `radial-gradient(circle, ${to}33 0%, transparent 70%)`,
-          }}
-        />
+        <div style={{ position: 'absolute', top: -120, right: -120, width: 480, height: 480, borderRadius: 240, background: `radial-gradient(circle, ${from}55 0%, transparent 70%)` }} />
+        <div style={{ position: 'absolute', bottom: -80, left: -80, width: 320, height: 320, borderRadius: 160, background: `radial-gradient(circle, ${to}33 0%, transparent 70%)` }} />
 
         {/* Card */}
         <div
           style={{
             margin: 'auto',
-            width: 460,
+            width: 500,
             background: 'rgba(255,255,255,0.04)',
             border: `1px solid ${from}55`,
             borderRadius: 28,
-            padding: '36px 40px',
+            padding: '36px 44px',
             display: 'flex',
             flexDirection: 'column',
-            gap: 24,
+            gap: 20,
             boxShadow: `0 0 40px ${from}44`,
           }}
         >
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div
-              style={{
-                width: 56,
-                height: 56,
-                borderRadius: 28,
-                background: `linear-gradient(135deg, ${from}, ${to})`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 28,
-                color: 'white',
-                flexShrink: 0,
-              }}
-            >
+            <div style={{ width: 56, height: 56, borderRadius: 28, background: `linear-gradient(135deg, ${from}, ${to})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, color: 'white', flexShrink: 0 }}>
               ✦
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <div style={{ color: 'white', fontWeight: 700, fontSize: 22 }}>
-                {displayAddr}
-              </div>
-              <div style={{ color: `${from}cc`, fontSize: 13 }}>
-                {label} Aura
-              </div>
+              <div style={{ color: 'white', fontWeight: 700, fontSize: 22 }}>{displayAddr}</div>
+              <div style={{ color: `${from}cc`, fontSize: 14 }}>{label} Aura · Base</div>
             </div>
           </div>
 
           {/* Divider */}
-          <div
-            style={{
-              height: 1,
-              background: `linear-gradient(to right, ${from}66, ${to}66)`,
-            }}
-          />
+          <div style={{ height: 1, background: `linear-gradient(to right, ${from}66, ${to}66)` }} />
 
           {/* Artists */}
           {artists.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, letterSpacing: 2 }}>
-                ♪ VIBING TO
-              </div>
+              <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, letterSpacing: 3 }}>♪ VIBING TO</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {artists.map((a) => (
-                  <div
-                    key={a}
-                    style={{
-                      padding: '6px 16px',
-                      borderRadius: 100,
-                      background: `linear-gradient(to right, ${from}, ${to})`,
-                      color: 'white',
-                      fontSize: 14,
-                      fontWeight: 600,
-                    }}
-                  >
+                  <div key={a} style={{ padding: '6px 18px', borderRadius: 100, background: `linear-gradient(to right, ${from}, ${to})`, color: 'white', fontSize: 15, fontWeight: 600 }}>
                     {a}
                   </div>
                 ))}
@@ -173,26 +172,9 @@ export async function GET(req: Request) {
           )}
 
           {/* Footer */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <div style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12 }}>
-              on Base
-            </div>
-            <div
-              style={{
-                color: from,
-                fontSize: 18,
-                fontWeight: 800,
-                letterSpacing: -0.5,
-              }}
-            >
-              Aura Card
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+            <div style={{ color: 'rgba(255,255,255,0.2)', fontSize: 13 }}>aura-card-five.vercel.app</div>
+            <div style={{ color: from, fontSize: 20, fontWeight: 800 }}>Aura Card</div>
           </div>
         </div>
       </div>
