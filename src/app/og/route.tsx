@@ -136,8 +136,8 @@ export async function GET(req: Request) {
           >
             {/* Header row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-              <div style={{ width: 60, height: 60, borderRadius: 30, background: `linear-gradient(135deg, ${from}, ${to})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, color: 'white', flexShrink: 0 }}>
-                ✦
+              <div style={{ width: 60, height: 60, borderRadius: 30, background: `linear-gradient(135deg, ${from}, ${to})`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: 20, height: 20, borderRadius: 10, background: 'rgba(255,255,255,0.85)', display: 'flex' }} />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <div style={{ color: 'white', fontWeight: 700, fontSize: 24 }}>{short}</div>
@@ -151,7 +151,7 @@ export async function GET(req: Request) {
             {/* Artists */}
             {artists.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, letterSpacing: 3 }}>♪ VIBING TO</div>
+                <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, letterSpacing: 3 }}>VIBING TO</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {artists.map((a, i) => (
                     <div key={i} style={{ padding: '7px 20px', borderRadius: 100, background: `linear-gradient(to right, ${from}, ${to})`, color: 'white', fontSize: 16, fontWeight: 600 }}>
