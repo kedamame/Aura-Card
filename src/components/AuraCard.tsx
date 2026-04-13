@@ -113,33 +113,6 @@ export function AuraCard({ address, user, onEdit, compact = false }: AuraCardPro
         {/* Divider */}
         <div className={`h-px bg-gradient-to-r ${gradient} opacity-30`} />
 
-        {/* Favorite Artists */}
-        <div>
-          <p className="text-white/40 text-xs uppercase tracking-widest mb-2">
-            ♪ Vibing to
-          </p>
-          {profileLoading ? (
-            <div className="flex gap-2">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-6 w-16 rounded-full bg-white/10 animate-pulse" />
-              ))}
-            </div>
-          ) : (favoriteArtists as string[]).length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {(favoriteArtists as string[]).map((artist, i) => (
-                <span
-                  key={i}
-                  className={`px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${gradient} text-white shadow-sm`}
-                >
-                  {artist}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <p className="text-white/30 text-sm italic">No artists set yet</p>
-          )}
-        </div>
-
         {/* Base Activity */}
         <div>
           <p className="text-white/40 text-xs uppercase tracking-widest mb-2">
@@ -199,6 +172,33 @@ export function AuraCard({ address, user, onEdit, compact = false }: AuraCardPro
               </a>
             </>
           ) : null}
+        </div>
+
+        {/* Favorite Artists */}
+        <div>
+          <p className="text-white/40 text-xs uppercase tracking-widest mb-2">
+            ♪ Vibing to
+          </p>
+          {profileLoading ? (
+            <div className="flex gap-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-6 w-16 rounded-full bg-white/10 animate-pulse" />
+              ))}
+            </div>
+          ) : (favoriteArtists as string[]).length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {(favoriteArtists as string[]).map((artist, i) => (
+                <span
+                  key={i}
+                  className={`px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${gradient} text-white shadow-sm`}
+                >
+                  {artist}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-white/30 text-sm italic">No artists set yet</p>
+          )}
         </div>
 
         {/* Wallet address */}
