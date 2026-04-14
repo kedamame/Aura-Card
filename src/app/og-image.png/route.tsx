@@ -85,7 +85,6 @@ export async function GET() {
               borderRadius: 100,
               background: 'rgba(255,255,255,0.06)',
               border: '1px solid rgba(255,255,255,0.12)',
-              width: 'fit-content',
             }}
           >
             <div style={{ width: 8, height: 8, borderRadius: 4, background: '#3b82f6', display: 'flex' }} />
