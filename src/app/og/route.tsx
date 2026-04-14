@@ -6,8 +6,8 @@ export const maxDuration = 15;
 const RPC = process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org';
 const CONTRACT =
   process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0x2966a0eFA55F03F86Dd2736c25Ef76300B9c07D9';
-const APP_URL =
-  process.env.NEXT_PUBLIC_APP_URL || 'https://aura-card-five.vercel.app';
+const BLOCKSCOUT = 'https://base.blockscout.com/api';
+const OWN_CONTRACT = CONTRACT.toLowerCase();
 
 // ── profile ───────────────────────────────────────────────────────────────────
 
@@ -151,11 +151,22 @@ export async function GET(req: Request) {
         }),
       }).then((r) => r.json() as Promise<{ result?: string }>),
 
-      // latest tx via internal API
+      // latest tx: fetch txlist only (1 request, no 4byte), skip deployments
       withTimeout(
-        fetch(`${APP_URL}/api/tx/${address}`, { cache: 'no-store' })
-          .then((r) => r.json())
-          .then((d: { tx?: Tx }) => d.tx ?? null),
+        fetch(
+          `${BLOCKSCOUT}?module=account&action=txlist&address=${address}&page=1&offset=5&sort=desc`,
+          { cache: 'no-store' },
+        )
+          .then((r) => r.text())
+          .then((text) => {
+            const json = JSON.parse(text) as { status?: string; result?: Tx[] };
+            if (json.status !== '1' || !Array.isArray(json.result)) return null;
+            return (
+              json.result.find(
+                (t) => t.to && t.to.toLowerCase() !== OWN_CONTRACT,
+              ) ?? null
+            );
+          }),
         6000,
       ),
     ]);
